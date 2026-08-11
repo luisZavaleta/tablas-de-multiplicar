@@ -1,5 +1,7 @@
 # Tablas de Multiplicar
 
+[![GitHub repo](https://img.shields.io/badge/GitHub-tablas--de--multiplicar-181717?logo=github)](https://github.com/luisZavaleta/tablas-de-multiplicar)
+
 A multiplication-tables practice game, currently covering the table of 7,
 built for a 7-year-old: points, streaks, levels, two answer modes
 (multiple-choice or type-the-answer), and questions that adapt to which
