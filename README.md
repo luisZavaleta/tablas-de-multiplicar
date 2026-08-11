@@ -2,11 +2,12 @@
 
 [![GitHub repo](https://img.shields.io/badge/GitHub-tablas--de--multiplicar-181717?logo=github)](https://github.com/luisZavaleta/tablas-de-multiplicar)
 
-A multiplication-tables practice game, currently covering the table of 7,
-built for a 7-year-old: points, streaks, levels, two answer modes
-(multiple-choice or type-the-answer), and questions that adapt to which
-facts the player hasn't mastered yet. The app's UI text is in Spanish (the
-target user is a Spanish speaker); code and documentation are in English.
+A multiplication-tables practice game built for a 7-year-old: a sidebar to
+pick any combination of tables 1-10, points, streaks, levels, two answer
+modes (multiple-choice or type-the-answer), and questions that adapt to
+which facts the player hasn't mastered yet. The app's UI text is in Spanish
+(the target user is a Spanish speaker); code and documentation are in
+English.
 
 - `backend/` — Java 21 + Spring Boot (REST API + H2-backed persistence).
 - `frontend/` — React + Vite (game UI).
@@ -46,10 +47,10 @@ Open `http://localhost:5173` in a browser, enter a name, and play.
 
 ## How the game works
 
-- Each question is a multiplication from the table of 7 (configurable via
-  `ACTIVE_TABLES` in `frontend/src/App.jsx`, and via the `tables` query
-  param on the backend), chosen more often from facts the player hasn't
-  answered correctly as many times yet.
+- The sidebar lists tables 1-10 as toggleable chips — any combination can
+  be active at once (at least one always stays selected), and questions
+  are drawn from that combined pool, weighted toward facts the player
+  hasn't answered correctly as many times yet.
 - Two answer modes, switchable anytime from the toggle at the top of the
   game screen: **Normal** (4 multiple-choice options) and **Difícil**
   (type the answer, no options shown). Each mode has its own independent
@@ -72,9 +73,3 @@ Open `http://localhost:5173` in a browser, enter a name, and play.
   answer, returns updated points/streak/level.
 - `GET /api/quiz/stats/{playerId}` → the player's accumulated stats.
 
-## Adding more tables
-
-Built to grow beyond the table of 7 without restructuring: change
-`ACTIVE_TABLES` in `frontend/src/App.jsx` (e.g. `[7, 3, 5]`) — the backend
-already generates questions and distractors for whichever tables it
-receives.

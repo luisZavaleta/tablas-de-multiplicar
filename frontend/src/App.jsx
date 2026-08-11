@@ -3,8 +3,9 @@ import { createPlayer, fetchQuestion, fetchStats, submitAnswer } from './api'
 import QuestionCard from './components/QuestionCard'
 import ScoreBar from './components/ScoreBar'
 import Feedback from './components/Feedback'
+import TableSidebar from './components/TableSidebar'
 
-const ACTIVE_TABLES = [7]
+const DEFAULT_TABLES = [7]
 const NEXT_QUESTION_DELAY_MS = 1300
 
 const QUIZ_MODES = {
@@ -17,6 +18,16 @@ export default function App() {
   const [playerName, setPlayerName] = useState(() => localStorage.getItem('tablas.playerName') || '')
   const [nameInput, setNameInput] = useState('')
   const [mode, setMode] = useState(QUIZ_MODES.MULTIPLE_CHOICE)
+  const [selectedTables, setSelectedTables] = useState(() => {
+    const saved = localStorage.getItem('tablas.selectedTables')
+    if (!saved) return DEFAULT_TABLES
+    try {
+      const parsed = JSON.parse(saved)
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_TABLES
+    } catch {
+      return DEFAULT_TABLES
+    }
+  })
   const [score, setScore] = useState(0)
   const [level, setLevel] = useState(1)
   const [streaks, setStreaks] = useState({ MULTIPLE_CHOICE: 0, TYPE_ANSWER: 0 })
@@ -48,9 +59,9 @@ export default function App() {
     setQuestion(null)
   }
 
-  function loadNextQuestion(modeOverride) {
+  function loadNextQuestion(modeOverride, tablesOverride) {
     setFeedback(null)
-    fetchQuestion(playerId, ACTIVE_TABLES, modeOverride ?? mode)
+    fetchQuestion(playerId, tablesOverride ?? selectedTables, modeOverride ?? mode)
       .then(setQuestion)
       .catch(() => forgetPlayer())
   }
@@ -59,6 +70,18 @@ export default function App() {
     if (newMode === mode || answering) return
     setMode(newMode)
     loadNextQuestion(newMode)
+  }
+
+  function handleToggleTable(table) {
+    if (answering) return
+    const isSelected = selectedTables.includes(table)
+    if (isSelected && selectedTables.length === 1) return // always keep at least one table active
+    const next = isSelected
+      ? selectedTables.filter((t) => t !== table)
+      : [...selectedTables, table].sort((a, b) => a - b)
+    setSelectedTables(next)
+    localStorage.setItem('tablas.selectedTables', JSON.stringify(next))
+    loadNextQuestion(undefined, next)
   }
 
   async function handleNameSubmit(event) {
@@ -115,38 +138,41 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
-      <h1>¡Hola, {playerName}! 👋</h1>
-      <div className="mode-toggle">
-        <button
-          className={`mode-button ${mode === QUIZ_MODES.MULTIPLE_CHOICE ? 'mode-button-active' : ''}`}
-          onClick={() => handleModeChange(QUIZ_MODES.MULTIPLE_CHOICE)}
-        >
-          🎯 Normal
-        </button>
-        <button
-          className={`mode-button ${mode === QUIZ_MODES.TYPE_ANSWER ? 'mode-button-active' : ''}`}
-          onClick={() => handleModeChange(QUIZ_MODES.TYPE_ANSWER)}
-        >
-          🔥 Difícil
-        </button>
+    <div className="layout">
+      <TableSidebar selectedTables={selectedTables} onToggle={handleToggleTable} />
+      <div className="app-shell">
+        <h1>¡Hola, {playerName}! 👋</h1>
+        <div className="mode-toggle">
+          <button
+            className={`mode-button ${mode === QUIZ_MODES.MULTIPLE_CHOICE ? 'mode-button-active' : ''}`}
+            onClick={() => handleModeChange(QUIZ_MODES.MULTIPLE_CHOICE)}
+          >
+            🎯 Normal
+          </button>
+          <button
+            className={`mode-button ${mode === QUIZ_MODES.TYPE_ANSWER ? 'mode-button-active' : ''}`}
+            onClick={() => handleModeChange(QUIZ_MODES.TYPE_ANSWER)}
+          >
+            🔥 Difícil
+          </button>
+        </div>
+        <ScoreBar score={score} streak={streaks[mode]} level={level} />
+        {question ? (
+          <QuestionCard
+            key={question.questionId}
+            factorA={question.factorA}
+            factorB={question.factorB}
+            options={question.options}
+            mode={mode}
+            onAnswer={handleAnswer}
+            disabled={answering}
+          />
+        ) : (
+          <p>Cargando pregunta...</p>
+        )}
+        <Feedback feedback={feedback} />
+        {error && <p className="error-text">{error}</p>}
       </div>
-      <ScoreBar score={score} streak={streaks[mode]} level={level} />
-      {question ? (
-        <QuestionCard
-          key={question.questionId}
-          factorA={question.factorA}
-          factorB={question.factorB}
-          options={question.options}
-          mode={mode}
-          onAnswer={handleAnswer}
-          disabled={answering}
-        />
-      ) : (
-        <p>Cargando pregunta...</p>
-      )}
-      <Feedback feedback={feedback} />
-      {error && <p className="error-text">{error}</p>}
     </div>
   )
 }

@@ -13,8 +13,10 @@ multiplicar"), starting with only the table of 7. Confirmed requirements:
 - Frontend technology was left to Claude's discretion; React + Vite was
   chosen specifically because it's the stack most compatible with wrapping
   in Capacitor later (see below).
-- Only the table of 7 is active today, but the data model and API were
-  designed so adding more tables is a config change, not a redesign.
+- Started with only the table of 7 active; a sidebar was later added to
+  select any combination of tables 1-10 (see
+  [Table selection](#table-selection)) — the data model and API were
+  designed from the start so this was a frontend-only change.
 
 ## Architecture
 
@@ -108,11 +110,35 @@ schema outgrows this.
 - `components/Feedback.jsx` — correct/wrong message shown after answering.
   No sound or confetti libraries yet — deliberately kept dependency-free
   for now; CSS transitions only.
+- `components/TableSidebar.jsx` — the tables 1-10 picker; see
+  [Table selection](#table-selection).
 
 Answer flow: answer (click an option, or type + Enter/submit) →
 `POST /quiz/answer` → update score/level/streak from the response → show
 feedback → after `NEXT_QUESTION_DELAY_MS` (1300ms), fetch the next question
 automatically. No manual "next" button, to keep the loop fast for a kid.
+
+## Table selection
+
+A sidebar (`TableSidebar.jsx`, to the left of the game card on wide
+screens, stacked above it below the `640px` breakpoint) lists tables 1-10
+as toggleable chips. Multiple tables can be active at once — questions are
+then drawn from the combined pool, still weighted by the adaptive selection
+below. Backend already accepted an arbitrary comma-separated `tables` list
+before this UI existed (`GET /quiz/question?tables=1,7,10`), and
+`generateOptions`'s distractor math was already generic per-table, so this
+was a **frontend-only** change — no backend code changed, only verified
+(see below).
+
+- `App.jsx` holds `selectedTables` (array of ints), persisted to
+  `localStorage` (`tablas.selectedTables`) so the selection survives a
+  reload, same pattern as `playerId`.
+- At least one table must stay selected — `handleToggleTable` no-ops if
+  you try to deselect the last remaining one, rather than letting the
+  active set go empty (the backend would silently fall back to `[7]` if it
+  ever received an empty list, but the UI prevents that case entirely).
+- Toggling immediately loads a new question for the new table set, the
+  same way switching [answer mode](#answer-modes) does.
 
 ## Answer modes
 
@@ -187,7 +213,8 @@ Defined in `QuizService.java`, easy to tune:
 - `playerId` is required on `GET /quiz/question` (needed for weighting, see
   above) — a missing or unknown one returns 400.
 - `tables` accepts a comma-separated list (e.g. `tables=7,3,5`); the
-  frontend currently only ever sends `7` (see `ACTIVE_TABLES` in `App.jsx`).
+  frontend sends whatever's checked in the [table sidebar](#table-selection)
+  (`selectedTables` in `App.jsx`, defaults to `[7]` for a new player).
 - `mode` is `MULTIPLE_CHOICE` (default) or `TYPE_ANSWER`; an unrecognized
   value returns 400. `options` is `[]` when `mode=TYPE_ANSWER`.
 - `POST /quiz/answer`'s `streak` in the response is for whichever mode the
@@ -216,6 +243,13 @@ Defined in `QuizService.java`, easy to tune:
   a full browser pass of Difícil mode — typing a correct answer (Enter key
   and submit button both work), typing a wrong answer, and switching modes
   mid-session without losing score/streak/level.
+- Table selection: scripted curl pass generating 5 questions per table
+  (1-10) validating `factorA` matches, the correct answer is among exactly
+  4 unique positive options, confirming `generateOptions` holds up at both
+  edges (table 1 and table 10, where distractor math has the least room);
+  a mixed-tables draw (`tables=1,7,10`) confirmed only those three appear.
+  Then a full browser pass: toggling chips on/off, multi-select drawing
+  from the combined pool, and the "can't deselect the last one" guard.
 - Per-mode streaks: scripted probe answering 3 in a row correctly in
   `MULTIPLE_CHOICE` then 1 in `TYPE_ANSWER`, confirming the second mode's
   streak starts at 1 (not 4) and `stats` reports both independently; also
