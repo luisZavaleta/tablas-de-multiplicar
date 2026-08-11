@@ -30,3 +30,7 @@ export function submitAnswer(playerId, questionId, answer) {
 export function fetchStats(playerId) {
   return request(`/quiz/stats/${playerId}`)
 }
+
+export function fetchStreak(playerId, table, mode) {
+  return request(`/quiz/streak?playerId=${playerId}&table=${table}&mode=${mode}`)
+}

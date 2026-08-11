@@ -6,6 +6,7 @@ import com.tablas.backend.dto.CreatePlayerRequest;
 import com.tablas.backend.dto.PlayerResponse;
 import com.tablas.backend.dto.QuestionResponse;
 import com.tablas.backend.dto.StatsResponse;
+import com.tablas.backend.dto.StreakResponse;
 import com.tablas.backend.model.Player;
 import com.tablas.backend.model.QuizMode;
 import com.tablas.backend.repository.PlayerRepository;
@@ -67,5 +68,14 @@ public class QuizController {
         Player player = playerRepository.findById(playerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Jugador no encontrado"));
         return quizService.stats(player);
+    }
+
+    @GetMapping("/quiz/streak")
+    public StreakResponse streak(
+            @RequestParam UUID playerId,
+            @RequestParam int table,
+            @RequestParam(defaultValue = "MULTIPLE_CHOICE") QuizMode mode
+    ) {
+        return quizService.getStreak(playerId, table, mode);
     }
 }

@@ -20,13 +20,6 @@ public class Player {
     private int correctAnswers = 0;
     private int totalAnswers = 0;
 
-    // Streaks are tracked per quiz mode, not shared, so switching to
-    // Difícil mode doesn't reset (or inherit) progress made in Normal mode.
-    private int currentStreakMultipleChoice = 0;
-    private int bestStreakMultipleChoice = 0;
-    private int currentStreakTypeAnswer = 0;
-    private int bestStreakTypeAnswer = 0;
-
     protected Player() {
         // JPA
     }
@@ -59,33 +52,13 @@ public class Player {
         return (int) (totalScore / 100) + 1;
     }
 
-    public int getCurrentStreak(QuizMode mode) {
-        return mode == QuizMode.MULTIPLE_CHOICE ? currentStreakMultipleChoice : currentStreakTypeAnswer;
-    }
-
-    public int getBestStreak(QuizMode mode) {
-        return mode == QuizMode.MULTIPLE_CHOICE ? bestStreakMultipleChoice : bestStreakTypeAnswer;
-    }
-
-    public void registerCorrectAnswer(QuizMode mode) {
+    public void registerCorrectAnswer() {
         correctAnswers++;
         totalAnswers++;
-        if (mode == QuizMode.MULTIPLE_CHOICE) {
-            currentStreakMultipleChoice++;
-            bestStreakMultipleChoice = Math.max(bestStreakMultipleChoice, currentStreakMultipleChoice);
-        } else {
-            currentStreakTypeAnswer++;
-            bestStreakTypeAnswer = Math.max(bestStreakTypeAnswer, currentStreakTypeAnswer);
-        }
     }
 
-    public void registerWrongAnswer(QuizMode mode) {
+    public void registerWrongAnswer() {
         totalAnswers++;
-        if (mode == QuizMode.MULTIPLE_CHOICE) {
-            currentStreakMultipleChoice = 0;
-        } else {
-            currentStreakTypeAnswer = 0;
-        }
     }
 
     public void addScore(long points) {

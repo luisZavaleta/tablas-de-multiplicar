@@ -3,12 +3,15 @@ package com.tablas.backend.service;
 import com.tablas.backend.dto.AnswerResponse;
 import com.tablas.backend.dto.QuestionResponse;
 import com.tablas.backend.dto.StatsResponse;
+import com.tablas.backend.dto.StreakResponse;
 import com.tablas.backend.model.FactStat;
 import com.tablas.backend.model.PendingQuestion;
 import com.tablas.backend.model.Player;
 import com.tablas.backend.model.QuizMode;
+import com.tablas.backend.model.StreakStat;
 import com.tablas.backend.repository.FactStatRepository;
 import com.tablas.backend.repository.PlayerRepository;
+import com.tablas.backend.repository.StreakStatRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -30,11 +33,17 @@ public class QuizService {
 
     private final PlayerRepository playerRepository;
     private final FactStatRepository factStatRepository;
+    private final StreakStatRepository streakStatRepository;
     private final Map<UUID, PendingQuestion> pendingQuestions = new ConcurrentHashMap<>();
 
-    public QuizService(PlayerRepository playerRepository, FactStatRepository factStatRepository) {
+    public QuizService(
+            PlayerRepository playerRepository,
+            FactStatRepository factStatRepository,
+            StreakStatRepository streakStatRepository
+    ) {
         this.playerRepository = playerRepository;
         this.factStatRepository = factStatRepository;
+        this.streakStatRepository = streakStatRepository;
     }
 
     public QuestionResponse generateQuestion(UUID playerId, List<Integer> activeTables, QuizMode mode) {
@@ -110,21 +119,29 @@ public class QuizService {
                 .orElseThrow(() -> new IllegalArgumentException("Player not found"));
 
         QuizMode mode = question.mode();
+        int table = question.factorA();
+        StreakStat streak = streakStatRepository
+                .findByPlayerIdAndTableNumberAndMode(playerId, table, mode)
+                .orElseGet(() -> new StreakStat(playerId, table, mode));
+
         boolean correct = answer == question.correctAnswer();
         long pointsEarned = 0;
 
         if (correct) {
-            player.registerCorrectAnswer(mode);
+            player.registerCorrectAnswer();
+            streak.registerCorrectAnswer();
             pointsEarned = POINTS_PER_CORRECT_ANSWER;
-            if (player.getCurrentStreak(mode) % STREAK_BONUS_EVERY == 0) {
+            if (streak.getCurrentStreak() % STREAK_BONUS_EVERY == 0) {
                 pointsEarned += STREAK_BONUS;
             }
             player.addScore(pointsEarned);
         } else {
-            player.registerWrongAnswer(mode);
+            player.registerWrongAnswer();
+            streak.registerWrongAnswer();
         }
 
         playerRepository.save(player);
+        streakStatRepository.save(streak);
         recordFactAttempt(playerId, question.factorA(), question.factorB(), correct);
 
         return new AnswerResponse(
@@ -132,9 +149,15 @@ public class QuizService {
                 question.correctAnswer(),
                 pointsEarned,
                 player.getTotalScore(),
-                player.getCurrentStreak(mode),
+                streak.getCurrentStreak(),
                 player.getLevel()
         );
+    }
+
+    public StreakResponse getStreak(UUID playerId, int table, QuizMode mode) {
+        return streakStatRepository.findByPlayerIdAndTableNumberAndMode(playerId, table, mode)
+                .map(stat -> new StreakResponse(table, mode.name(), stat.getCurrentStreak(), stat.getBestStreak()))
+                .orElseGet(() -> new StreakResponse(table, mode.name(), 0, 0));
     }
 
     private void recordFactAttempt(UUID playerId, int table, int multiplier, boolean correct) {
@@ -156,11 +179,7 @@ public class QuizService {
                 player.getLevel(),
                 player.getCorrectAnswers(),
                 player.getTotalAnswers(),
-                accuracy,
-                player.getCurrentStreak(QuizMode.MULTIPLE_CHOICE),
-                player.getBestStreak(QuizMode.MULTIPLE_CHOICE),
-                player.getCurrentStreak(QuizMode.TYPE_ANSWER),
-                player.getBestStreak(QuizMode.TYPE_ANSWER)
+                accuracy
         );
     }
 

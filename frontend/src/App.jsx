@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { createPlayer, fetchQuestion, fetchStats, submitAnswer } from './api'
+import { createPlayer, fetchQuestion, fetchStats, fetchStreak, submitAnswer } from './api'
 import QuestionCard from './components/QuestionCard'
 import ScoreBar from './components/ScoreBar'
 import Feedback from './components/Feedback'
 import TableSidebar from './components/TableSidebar'
 
-const DEFAULT_TABLES = [7]
+const DEFAULT_TABLE = 7
 const NEXT_QUESTION_DELAY_MS = 1300
 
 const QUIZ_MODES = {
@@ -18,19 +18,13 @@ export default function App() {
   const [playerName, setPlayerName] = useState(() => localStorage.getItem('tablas.playerName') || '')
   const [nameInput, setNameInput] = useState('')
   const [mode, setMode] = useState(QUIZ_MODES.MULTIPLE_CHOICE)
-  const [selectedTables, setSelectedTables] = useState(() => {
-    const saved = localStorage.getItem('tablas.selectedTables')
-    if (!saved) return DEFAULT_TABLES
-    try {
-      const parsed = JSON.parse(saved)
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_TABLES
-    } catch {
-      return DEFAULT_TABLES
-    }
+  const [selectedTable, setSelectedTable] = useState(() => {
+    const saved = Number(localStorage.getItem('tablas.selectedTable'))
+    return saved >= 1 && saved <= 10 ? saved : DEFAULT_TABLE
   })
   const [score, setScore] = useState(0)
   const [level, setLevel] = useState(1)
-  const [streaks, setStreaks] = useState({ MULTIPLE_CHOICE: 0, TYPE_ANSWER: 0 })
+  const [streak, setStreak] = useState(0)
   const [question, setQuestion] = useState(null)
   const [feedback, setFeedback] = useState(null)
   const [answering, setAnswering] = useState(false)
@@ -42,12 +36,9 @@ export default function App() {
       .then((stats) => {
         setScore(stats.totalScore)
         setLevel(stats.level)
-        setStreaks({
-          MULTIPLE_CHOICE: stats.currentStreakMultipleChoice,
-          TYPE_ANSWER: stats.currentStreakTypeAnswer,
-        })
       })
       .catch(() => forgetPlayer())
+    loadStreak()
     loadNextQuestion()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playerId])
@@ -59,29 +50,32 @@ export default function App() {
     setQuestion(null)
   }
 
-  function loadNextQuestion(modeOverride, tablesOverride) {
+  function loadNextQuestion(modeOverride, tableOverride) {
     setFeedback(null)
-    fetchQuestion(playerId, tablesOverride ?? selectedTables, modeOverride ?? mode)
+    fetchQuestion(playerId, [tableOverride ?? selectedTable], modeOverride ?? mode)
       .then(setQuestion)
       .catch(() => forgetPlayer())
+  }
+
+  function loadStreak(modeOverride, tableOverride) {
+    fetchStreak(playerId, tableOverride ?? selectedTable, modeOverride ?? mode)
+      .then((result) => setStreak(result.currentStreak))
+      .catch(() => {})
   }
 
   function handleModeChange(newMode) {
     if (newMode === mode || answering) return
     setMode(newMode)
     loadNextQuestion(newMode)
+    loadStreak(newMode)
   }
 
-  function handleToggleTable(table) {
-    if (answering) return
-    const isSelected = selectedTables.includes(table)
-    if (isSelected && selectedTables.length === 1) return // always keep at least one table active
-    const next = isSelected
-      ? selectedTables.filter((t) => t !== table)
-      : [...selectedTables, table].sort((a, b) => a - b)
-    setSelectedTables(next)
-    localStorage.setItem('tablas.selectedTables', JSON.stringify(next))
-    loadNextQuestion(undefined, next)
+  function handleSelectTable(table) {
+    if (table === selectedTable || answering) return
+    setSelectedTable(table)
+    localStorage.setItem('tablas.selectedTable', String(table))
+    loadNextQuestion(undefined, table)
+    loadStreak(undefined, table)
   }
 
   async function handleNameSubmit(event) {
@@ -107,7 +101,7 @@ export default function App() {
       setFeedback(result)
       setScore(result.totalScore)
       setLevel(result.level)
-      setStreaks((prev) => ({ ...prev, [mode]: result.streak }))
+      setStreak(result.streak)
       setTimeout(() => {
         setAnswering(false)
         loadNextQuestion()
@@ -139,7 +133,7 @@ export default function App() {
 
   return (
     <div className="layout">
-      <TableSidebar selectedTables={selectedTables} onToggle={handleToggleTable} />
+      <TableSidebar selectedTable={selectedTable} onSelect={handleSelectTable} />
       <div className="app-shell">
         <h1>¡Hola, {playerName}! 👋</h1>
         <div className="mode-toggle">
@@ -156,7 +150,7 @@ export default function App() {
             🔥 Difícil
           </button>
         </div>
-        <ScoreBar score={score} streak={streaks[mode]} level={level} />
+        <ScoreBar score={score} streak={streak} level={level} />
         {question ? (
           <QuestionCard
             key={question.questionId}

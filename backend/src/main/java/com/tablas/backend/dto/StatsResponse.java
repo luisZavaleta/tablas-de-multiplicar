@@ -6,10 +6,6 @@ public record StatsResponse(
         int level,
         int correctAnswers,
         int totalAnswers,
-        double accuracy,
-        int currentStreakMultipleChoice,
-        int bestStreakMultipleChoice,
-        int currentStreakTypeAnswer,
-        int bestStreakTypeAnswer
+        double accuracy
 ) {
 }
