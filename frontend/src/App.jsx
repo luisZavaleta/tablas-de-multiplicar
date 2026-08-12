@@ -4,6 +4,7 @@ import QuestionCard from './components/QuestionCard'
 import ScoreBar from './components/ScoreBar'
 import Feedback from './components/Feedback'
 import TableSidebar from './components/TableSidebar'
+import { playCorrectSound, playWrongSound, unlockAudio } from './sound'
 
 const DEFAULT_TABLE = 7
 const NEXT_QUESTION_DELAY_MS = 1300
@@ -80,6 +81,7 @@ export default function App() {
 
   async function handleNameSubmit(event) {
     event.preventDefault()
+    unlockAudio()
     const trimmed = nameInput.trim()
     if (!trimmed) return
     try {
@@ -95,6 +97,7 @@ export default function App() {
 
   async function handleAnswer(answer) {
     if (!question || answering) return
+    unlockAudio()
     setAnswering(true)
     try {
       const result = await submitAnswer(playerId, question.questionId, answer)
@@ -102,6 +105,11 @@ export default function App() {
       setScore(result.totalScore)
       setLevel(result.level)
       setStreak(result.streak)
+      if (result.correct) {
+        playCorrectSound()
+      } else {
+        playWrongSound()
+      }
       setTimeout(() => {
         setAnswering(false)
         loadNextQuestion()

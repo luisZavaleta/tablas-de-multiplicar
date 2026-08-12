@@ -119,15 +119,37 @@ schema outgrows this.
 - `components/ScoreBar.jsx` — level/points/streak badges + a progress bar
   toward the next level.
 - `components/Feedback.jsx` — correct/wrong message shown after answering.
-  No sound or confetti libraries yet — deliberately kept dependency-free
-  for now; CSS transitions only.
+  No confetti library — deliberately kept dependency-free; CSS transitions
+  only.
 - `components/TableSidebar.jsx` — the tables 1-10 picker; see
   [Table selection](#table-selection).
+- `sound.js` — correct/wrong sound effects; see [Sound effects](#sound-effects).
 
 Answer flow: answer (click an option, or type + Enter/submit) →
-`POST /quiz/answer` → update score/level/streak from the response → show
-feedback → after `NEXT_QUESTION_DELAY_MS` (1300ms), fetch the next question
-automatically. No manual "next" button, to keep the loop fast for a kid.
+`POST /quiz/answer` → update score/level/streak from the response → play
+a correct/wrong sound → show feedback → after `NEXT_QUESTION_DELAY_MS`
+(1300ms), fetch the next question automatically. No manual "next" button,
+to keep the loop fast for a kid.
+
+## Sound effects
+
+`sound.js` plays a short chime via the Web Audio API directly — no audio
+files, no library, in keeping with the project's "stay dependency-free
+where reasonable" pattern (see `Feedback.jsx` above). A correct answer
+plays an ascending three-note major chime (C5-E5-G5, triangle wave); a
+wrong answer plays a soft two-note descending dip (sine wave) — deliberately
+gentle, not a harsh buzzer, since this is for a 7-year-old.
+
+Browsers only allow starting/resuming an `AudioContext` from inside a
+user-gesture call stack (a click handler, not an arbitrary async
+callback). `unlockAudio()` creates (or resumes, if suspended) a single
+shared `AudioContext` and must be called synchronously at the top of a
+click handler, before any `await` — `App.jsx` calls it at the start of
+both `handleNameSubmit` (first-time players) and `handleAnswer` (returning
+players, who skip the name screen entirely). Once unlocked, the actual
+`playCorrectSound()`/`playWrongSound()` calls later in an async function
+work fine even though they happen after an `await`, because the context
+itself was already running.
 
 ## Table selection
 
@@ -310,6 +332,12 @@ Defined in `QuizService.java`, easy to tune:
   switched to table 1 and confirmed racha showed 0 (not table 4's value),
   switched back to table 4 and confirmed its streak was still there
   exactly as left.
+- Sound effects: `npm run build` succeeds with the new module; exercised
+  `unlockAudio`/`playCorrectSound`/`playWrongSound` directly in-browser
+  with no thrown errors, then confirmed the real click flow (answering a
+  question live, both correct and via a returning-player session that
+  skips the name screen) hits `unlockAudio()` before the first `await` in
+  both entry points with no console errors.
 
 ## Gotchas worth knowing about
 

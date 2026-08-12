@@ -64,6 +64,8 @@ Open `http://localhost:5173` in a browser, enter a name, and play.
 - Level = total points / 100 (+1).
 - Progress (points, level, per-fact accuracy, and every table+mode streak)
   is saved per player and persists across sessions.
+- A short chime plays on a correct answer, a soft dip on a wrong one —
+  generated directly via the Web Audio API, no audio files or libraries.
 
 ## API (backend)
 
